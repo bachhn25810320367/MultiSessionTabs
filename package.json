@@ -5,8 +5,9 @@
   "description": "Chrome MV3 extension for per-tab same-domain session isolation.",
   "scripts": {
     "install:browser": "npx @puppeteer/browsers install chrome@136.0.7103.113 --path .browsers",
-    "test": "node test/static-check.js && node test/e2e.js",
+    "test": "node test/static-check.js && node test/smoke.js",
     "test:static": "node test/static-check.js",
+    "test:smoke": "node test/smoke.js",
     "test:e2e": "node test/e2e.js"
   },
   "devDependencies": {
