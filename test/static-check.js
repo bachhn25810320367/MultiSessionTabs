@@ -28,7 +28,10 @@ assert(!/chrome-extension:\/\/[a-p]{32}/.test(serviceWorker), "hardcoded extensi
 
 const contentScript = fs.readFileSync(path.join(root, "content-script.js"), "utf8");
 assert(contentScript.includes("postMessage"), "page bridge missing");
-assert(contentScript.includes("chrome.storage.local"), "content bridge storage access missing");
+assert(contentScript.includes("chrome.runtime.sendMessage"), "content bridge must forward cookie writes to background");
+assert(!contentScript.includes("storage.session"), "content bridge must not access storage.session directly");
+assert(contentScript.includes("content:setCookie"), "content bridge must forward setCookie");
+assert(contentScript.includes("content:deleteCookie"), "content bridge must forward deleteCookie");
 
 console.log("static checks ok");
 

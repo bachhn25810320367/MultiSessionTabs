@@ -12,10 +12,8 @@ const MSG = {
 };
 
 const LOCAL_SESSIONS = "mst:sessions";
-const LOCAL_COOKIES = "mst:cookies";
 const TAB_PREFIX = "mst:tab:";
 const RULE_PREFIX = "mst:rules:";
-const REFRESH_PREFIX = "mst:refresh:";
 const tabRuleQueues = new Map();
 const pendingTabAssignments = new Map();
 const assignedTabIds = new Set();
@@ -70,9 +68,6 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
         assignedTabIds.delete(tabId);
         removeRulesForTab(tabId);
       }
-    } else if (key.startsWith(REFRESH_PREFIX)) {
-      const sessionId = key.slice(REFRESH_PREFIX.length);
-      refreshRulesForSession(sessionId);
     }
   }
 });
@@ -138,15 +133,16 @@ addHeadersReceivedListener();
 migrateLegacyCookieStore().catch(() => {});
 
 async function migrateLegacyCookieStore() {
-  const stored = await chrome.storage.local.get(LOCAL_COOKIES);
-  const legacy = stored[LOCAL_COOKIES];
+  const legacyKey = "mst:cookies";
+  const stored = await chrome.storage.local.get(legacyKey);
+  const legacy = stored[legacyKey];
   if (!legacy) return;
   const updates = {};
   for (const [sessionId, cookies] of Object.entries(legacy)) {
     updates[cookieStoreKey(sessionId)] = cookies;
   }
   await chrome.storage.local.set(updates);
-  await chrome.storage.local.remove(LOCAL_COOKIES);
+  await chrome.storage.local.remove(legacyKey);
 }
 
 function addHeadersReceivedListener() {
@@ -406,15 +402,6 @@ async function applyRulesForTabNow(tabId, url) {
   await chrome.declarativeNetRequest.updateSessionRules({ addRules: rules });
   await chrome.storage.session.set({ [ruleKey(tabId)]: rules.map((item) => item.id) });
   await injectPageContext(tabId, assignment.sessionId, url);
-}
-
-async function refreshRulesForSession(sessionId) {
-  const stored = await chrome.storage.session.get(null);
-  for (const [key, assignment] of Object.entries(stored)) {
-    if (!key.startsWith(TAB_PREFIX) || assignment?.sessionId !== sessionId) continue;
-    const tabId = Number(key.slice(TAB_PREFIX.length));
-    chrome.tabs.get(tabId).then((tab) => applyRulesForTab(tabId, tab.url || "")).catch(() => {});
-  }
 }
 
 async function injectPageContext(tabId, sessionId, url) {

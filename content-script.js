@@ -29,9 +29,9 @@
   async function handlePageMessage(message) {
     let response;
     if (message.type === "setCookie") {
-      response = await saveCookieFromPage(message);
+      response = await send({ type: MSG.SET_COOKIE, cookie: String(message.cookie || ""), url: location.href });
     } else if (message.type === "deleteCookie") {
-      response = await deleteCookieFromPage(message);
+      response = await send({ type: MSG.DELETE_COOKIE, name: message.name, domain: message.domain, path: message.path, url: location.href });
     } else if (message.type === "getCookies") {
       response = await send({ type: MSG.GET_COOKIES, url: location.href });
     } else {
@@ -40,94 +40,16 @@
     postToPage({ id: message.id, type: "response", response });
   }
 
-  async function saveCookieFromPage(message) {
-    const cookie = parseSetCookie(message.cookie, message.url || location.href);
-    const storeKey = `mst:cookies:${message.sessionId}`;
-    const stored = await chrome.storage.local.get(storeKey);
-    const sessionCookies = { ...(stored[storeKey] || {}) };
-    const key = `${cookie.domain};${cookie.path};${cookie.name}`;
-    if (cookie.expiresAt !== null && cookie.expiresAt <= Date.now()) delete sessionCookies[key];
-    else sessionCookies[key] = cookie;
-    await chrome.storage.local.set({ [storeKey]: sessionCookies });
-    await chrome.storage.session.set({ [`mst:refresh:${message.sessionId}`]: { at: Date.now() } });
-    return { ok: true, cookie: publicCookie(cookie) };
-  }
-
-  async function deleteCookieFromPage(message) {
-    const storeKey = `mst:cookies:${message.sessionId}`;
-    const stored = await chrome.storage.local.get(storeKey);
-    const sessionCookies = { ...(stored[storeKey] || {}) };
-    const domain = normalizeCookieDomain(message.domain || location.hostname);
-    delete sessionCookies[`${domain};${message.path || "/"};${message.name}`];
-    await chrome.storage.local.set({ [storeKey]: sessionCookies });
-    await chrome.storage.session.set({ [`mst:refresh:${message.sessionId}`]: { at: Date.now() } });
-    return { ok: true };
-  }
-
-  function parseSetCookie(header, sourceUrl) {
-    const url = new URL(sourceUrl);
-    const parts = String(header).split(";").map((part) => part.trim()).filter(Boolean);
-    const [namePart, ...attributes] = parts;
-    const eq = namePart.indexOf("=");
-    const cookie = {
-      name: namePart.slice(0, eq).trim(),
-      value: namePart.slice(eq + 1),
-      domain: url.hostname.toLowerCase(),
-      hostOnly: true,
-      path: "/",
-      secure: false,
-      httpOnly: false,
-      sameSite: "unspecified",
-      expiresAt: null,
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    };
-    for (const attr of attributes) {
-      const attrEq = attr.indexOf("=");
-      const rawName = (attrEq === -1 ? attr : attr.slice(0, attrEq)).toLowerCase();
-      const rawValue = attrEq === -1 ? "" : attr.slice(attrEq + 1);
-      if (rawName === "domain") {
-        cookie.domain = normalizeCookieDomain(rawValue);
-        cookie.hostOnly = false;
-      } else if (rawName === "path" && rawValue.startsWith("/")) {
-        cookie.path = rawValue;
-      } else if (rawName === "secure") {
-        cookie.secure = true;
-      } else if (rawName === "expires") {
-        const time = Date.parse(rawValue);
-        cookie.expiresAt = Number.isFinite(time) ? time : null;
-      } else if (rawName === "max-age") {
-        const seconds = Number.parseInt(rawValue, 10);
-        if (Number.isFinite(seconds)) cookie.expiresAt = Date.now() + seconds * 1000;
-      }
-    }
-    return cookie;
-  }
-
-  function normalizeCookieDomain(domain) {
-    return String(domain || "").trim().replace(/^\./, "").toLowerCase();
-  }
-
-  function publicCookie(cookie) {
-    return {
-      name: cookie.name,
-      value: cookie.value,
-      domain: cookie.domain,
-      hostOnly: cookie.hostOnly,
-      path: cookie.path,
-      secure: cookie.secure,
-      httpOnly: cookie.httpOnly,
-      sameSite: cookie.sameSite,
-      expiresAt: cookie.expiresAt
-    };
-  }
-
   function postToPage(payload) {
     window.postMessage({ source: EXT_SOURCE, ...payload }, "*");
   }
 
   function send(message) {
-    return new Promise((resolve) => chrome.runtime.sendMessage(message, resolve));
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage(message, (response) => {
+        const error = chrome.runtime.lastError;
+        resolve(error ? { ok: false, error: error.message } : response);
+      });
+    });
   }
-
 })();
