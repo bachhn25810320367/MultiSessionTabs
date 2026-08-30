@@ -130,6 +130,32 @@ chrome.tabs.onCreated.addListener(async (tab) => {
 
 addHeadersReceivedListener();
 
+// Patch at navigation commit: webNavigation.onCommitted fires when the new
+// document is created, earlier and more reliably than tabs.onUpdated.
+// Sub-frame commits patch freshly navigating same-host frames without waiting
+// for a tab-level event.
+chrome.webNavigation.onCommitted.addListener(
+  (details) => {
+    handleCommittedNavigation(details).catch((error) => console.error(error));
+  },
+  { schemes: ["http", "https"] }
+);
+
+async function handleCommittedNavigation(details) {
+  if (details.tabId < 0) return;
+  if (!assignedTabIds.has(details.tabId)) {
+    await ensureAssignedTabCache();
+    if (!assignedTabIds.has(details.tabId)) return;
+  }
+  const assignment = await getTabAssignment(details.tabId);
+  if (!assignment || !isAssignmentUrl(assignment, details.url)) return;
+  if (details.frameId === 0) {
+    await applyRulesForTab(details.tabId, details.url);
+  } else {
+    await injectPageContext(details.tabId, assignment.sessionId, details.url).catch(() => {});
+  }
+}
+
 migrateLegacyCookieStore().catch(() => {});
 
 async function migrateLegacyCookieStore() {
