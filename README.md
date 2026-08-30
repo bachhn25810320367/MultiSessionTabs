@@ -11,7 +11,7 @@ Chrome MV3 extension for running same-site accounts in different tabs in one win
 
 ## How it works
 
-The popup creates named sessions for the current hostname. Opening or assigning a session stores a tab-to-session mapping in `chrome.storage.session`.
+The popup creates named sessions for the current hostname. A session covers the site's domain, so sibling subdomains (e.g. `accounts.google.com` during a `gemini.google.com` sign-in) stay inside the session. Opening or assigning a session stores a tab-to-session mapping in `chrome.storage.session`.
 
 For assigned tabs, the service worker installs tab-scoped `declarativeNetRequest` rules:
 

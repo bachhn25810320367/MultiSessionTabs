@@ -322,6 +322,7 @@ async function createSessionForTab(tab, options = {}) {
   const session = {
     id: newId(),
     siteKey,
+    domainKey: domainKeyFromHost(siteKey),
     name: cleanName(options.name) || `Session ${existingCount + 1}`,
     color: COLORS[existingCount % COLORS.length],
     createdAt: Date.now()
@@ -413,7 +414,7 @@ async function applyRulesForTabNow(tabId, url) {
   rules.push({
     id: stripRuleId,
     priority: 1000,
-    condition: { tabIds: [tabId], resourceTypes: RESOURCE_TYPES, regexFilter: exactHostRegex(assignment.siteKey) },
+    condition: { tabIds: [tabId], resourceTypes: RESOURCE_TYPES, regexFilter: sessionUrlRegex(assignment) },
     action: {
       type: "modifyHeaders",
       requestHeaders: [{ header: "Cookie", operation: "remove" }]
@@ -423,7 +424,7 @@ async function applyRulesForTabNow(tabId, url) {
   const cookies = await getSessionCookies(assignment.sessionId);
   const liveCookies = Object.values(cookies).filter((cookie) => !isExpired(cookie));
   const header = cookieHeaderForUrl(liveCookies, currentUrl.href);
-  if (header) rules.push(cookieRule(tabId, `exact:${assignment.siteKey}`, 3000, exactHostRegex(assignment.siteKey), header));
+  if (header) rules.push(cookieRule(tabId, `exact:${assignment.siteKey}`, 3000, sessionUrlRegex(assignment), header));
 
   await chrome.declarativeNetRequest.updateSessionRules({ addRules: rules });
   await chrome.storage.session.set({ [ruleKey(tabId)]: rules.map((item) => item.id) });
@@ -436,6 +437,7 @@ async function injectPageContext(tabId, sessionId, url) {
   const context = {
     session,
     prefix: `mst:${session.id}:`,
+    domainKey: session.domainKey || domainKeyFromHost(session.siteKey),
     cookies: await cookiesForUrl(session.id, url, { includeHttpOnly: false })
   };
   await chrome.scripting.executeScript({
@@ -460,17 +462,30 @@ function installPageContext(context) {
   const prefix = context.prefix;
   const scopedWorkerBlobs = new Map();
 
-  // Cross-origin frames (ads, analytics, third-party widgets) must never see the
-  // host session's cookies or storage. Origin-inheriting frames such as
-  // about:blank resolve to the parent's origin and stay patched.
+  // Frames outside the session's domain (ads, analytics, third-party widgets)
+  // must never see the session's cookies or storage. Origin-inheriting frames
+  // such as about:blank resolve to the parent's origin and stay patched.
+  function domainKeyFromPageHost(host) {
+    const labels = String(host || "").toLowerCase().split(".").filter(Boolean);
+    if (labels.length <= 2 || /^\d+(\.\d+)*$/.test(host)) return labels.join(".");
+    const lastTwo = labels.slice(-2).join(".");
+    const twoLevel = ["co.uk", "org.uk", "ac.uk", "gov.uk", "co.jp", "co.kr", "co.in", "co.nz", "co.za", "com.au", "com.br", "com.vn", "com.tr", "com.cn", "com.hk", "com.sg", "com.mx", "com.ar"];
+    if (twoLevel.includes(lastTwo)) return labels.slice(-3).join(".");
+    return lastTwo;
+  }
+
   function frameMatchesSession(sessionContext) {
     const siteKey = sessionContext.session?.siteKey;
     if (!siteKey) return false;
+    let host;
     try {
-      return new URL(location.origin).hostname.toLowerCase() === siteKey;
+      host = new URL(location.origin).hostname.toLowerCase();
     } catch {
-      return location.hostname.toLowerCase() === siteKey;
+      host = location.hostname.toLowerCase();
     }
+    if (host === siteKey) return true;
+    const domainKey = sessionContext.domainKey || domainKeyFromPageHost(siteKey);
+    return Boolean(domainKey) && host.endsWith(`.${domainKey}`);
   }
 
   window.addEventListener("message", (event) => {
@@ -1047,9 +1062,33 @@ function isSupportedUrl(value) {
   return Boolean(safeUrl(value));
 }
 
+// Sessions cover the site's registrable domain, not just the exact host:
+// a session for gemini.google.com must also carry its cookies on
+// accounts.google.com so an in-session sign-in keeps working.
+const TWO_LEVEL_SUFFIXES = new Set([
+  "co.uk", "org.uk", "ac.uk", "gov.uk", "co.jp", "co.kr", "co.in", "co.nz",
+  "co.za", "com.au", "com.br", "com.vn", "com.tr", "com.cn", "com.hk",
+  "com.sg", "com.mx", "com.ar"
+]);
+
+function domainKeyFromHost(host) {
+  const labels = String(host || "").toLowerCase().split(".").filter(Boolean);
+  if (labels.length <= 2 || /^\d+(\.\d+)*$/.test(host)) return labels.join(".");
+  const lastTwo = labels.slice(-2).join(".");
+  if (TWO_LEVEL_SUFFIXES.has(lastTwo)) return labels.slice(-3).join(".");
+  return lastTwo;
+}
+
+function sessionDomainKey(assignment) {
+  return assignment.domainKey || domainKeyFromHost(assignment.siteKey);
+}
+
 function isAssignmentUrl(assignment, value) {
   const url = safeUrl(value);
-  return Boolean(assignment?.siteKey && url && url.hostname.toLowerCase() === assignment.siteKey);
+  if (!assignment?.siteKey || !url) return false;
+  const host = url.hostname.toLowerCase();
+  if (host === assignment.siteKey) return true;
+  return host.endsWith(`.${sessionDomainKey(assignment)}`);
 }
 
 function siteKeyFromUrl(value) {
@@ -1113,8 +1152,9 @@ function defaultCookiePath(pathname) {
   return lastSlash <= 0 ? "/" : pathname.slice(0, lastSlash);
 }
 
-function exactHostRegex(host) {
-  return `^https?://${escapeRegex(host)}(?::[0-9]+)?(?:/|$)`;
+function sessionUrlRegex(assignment) {
+  const escaped = escapeRegex(sessionDomainKey(assignment));
+  return `^https?://(?:[a-z0-9-]+\\.)*${escaped}(?::[0-9]+)?(?:/|$)`;
 }
 
 function escapeRegex(value) {
