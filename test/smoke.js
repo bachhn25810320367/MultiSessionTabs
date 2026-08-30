@@ -160,6 +160,28 @@ async function main() {
       childCookie && !childCookie.includes("sid=SESSVAL") && !childCookie.includes("jscookie=JSVAL"),
       childCookie || diagnostics.join(" | ")
     );
+
+    // Domain-scoped session: sign in on a sibling subdomain (like accounts.google.com
+    // during a gemini.google.com login) and the auth cookie must follow the session.
+    const port = new URL(server.origin).port;
+    await pageS.goto(`http://localhost:${port}/bench-load.html?i=sib`, { waitUntil: "load" });
+    const sibCreate = await evalSW(swSession, `handleMessage({ type: "session:create", tabId: ${tabIdS}, url: ${JSON.stringify(pageS.url())}, mode: "current", name: "Sib" }, {})
+      .then((value) => JSON.stringify(value)).catch((error) => JSON.stringify({ ok: false, error: String(error) }))`);
+    check("sibling-domain session created", JSON.parse(sibCreate).ok === true, sibCreate);
+    await waitMarker(pageS, 8000);
+    await pageS.goto(`http://sub.localhost:${port}/set?name=auth&value=SESSB&domain=localhost`, { waitUntil: "load" });
+    let sibMarker = true;
+    try {
+      await waitMarker(pageS, 8000);
+    } catch {
+      sibMarker = false;
+    }
+    check("sibling subdomain page is session-patched", sibMarker, "session marker missing on sibling subdomain");
+    await sleep(800);
+    await pageS.goto(`http://localhost:${port}/bench-load.html?i=sib2`, { waitUntil: "load" });
+    await waitMarker(pageS, 8000);
+    const sibCookie = await echoCookies(pageS);
+    check("sibling subdomain cookie captured into session", sibCookie.includes("auth=SESSB"), sibCookie);
   } finally {
     await browser.close().catch(() => {});
     await new Promise((resolve) => server.instance.close(resolve));

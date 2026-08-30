@@ -98,6 +98,8 @@ function startServer(options = {}) {
       const name = url.searchParams.get("name") || "token";
       const value = url.searchParams.get("value") || "value";
       const attrs = [`${name}=${value}`, "Path=/"];
+      const domain = url.searchParams.get("domain");
+      if (domain) attrs.push(`Domain=${domain}`);
       if (url.searchParams.get("httpOnly")) attrs.push("HttpOnly");
       response.setHeader("set-cookie", attrs.join("; "));
       response.setHeader("content-type", "application/json");
