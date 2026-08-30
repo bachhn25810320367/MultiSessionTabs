@@ -423,6 +423,7 @@ async function injectPageContext(tabId, sessionId, url) {
 
 function installPageContext(context) {
   if (window.__MULTISESSION_TABS_BOOTED__) return;
+  if (!frameMatchesSession(context)) return;
   window.__MULTISESSION_TABS_BOOTED__ = true;
 
   const PAGE_SOURCE = "multisession-tabs:page";
@@ -432,6 +433,19 @@ function installPageContext(context) {
   const pending = new Map();
   const prefix = context.prefix;
   const scopedWorkerBlobs = new Map();
+
+  // Cross-origin frames (ads, analytics, third-party widgets) must never see the
+  // host session's cookies or storage. Origin-inheriting frames such as
+  // about:blank resolve to the parent's origin and stay patched.
+  function frameMatchesSession(sessionContext) {
+    const siteKey = sessionContext.session?.siteKey;
+    if (!siteKey) return false;
+    try {
+      return new URL(location.origin).hostname.toLowerCase() === siteKey;
+    } catch {
+      return location.hostname.toLowerCase() === siteKey;
+    }
+  }
 
   window.addEventListener("message", (event) => {
     if (event.source !== window || event.data?.source !== EXT_SOURCE) return;
