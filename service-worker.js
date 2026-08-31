@@ -360,12 +360,15 @@ async function deleteCookieFromContent(message, sender) {
 }
 
 async function getCookiesFromContent(message, sender) {
+  // Never trust the URL in the message: pin the request to the URL of the
+  // frame that actually sent it, so a forged url cannot read other origins.
   const tabId = sender.tab?.id;
+  const frameUrl = sender.url || sender.tab?.url;
   const assignment = tabId ? await getTabAssignment(tabId) : null;
-  if (!assignment || !isAssignmentUrl(assignment, message.url || sender.tab?.url)) return { ok: true, cookies: [] };
+  if (!assignment || !isAssignmentUrl(assignment, frameUrl)) return { ok: true, cookies: [] };
   return {
     ok: true,
-    cookies: await cookiesForUrl(assignment.sessionId, message.url || sender.tab.url, {
+    cookies: await cookiesForUrl(assignment.sessionId, frameUrl, {
       includeHttpOnly: false
     })
   };
@@ -911,7 +914,7 @@ function installPageContext(context) {
     const id = `${Date.now()}:${requestId += 1}`;
     return new Promise((resolve) => {
       pending.set(id, resolve);
-      window.postMessage({ source: PAGE_SOURCE, id, sessionId: context.session.id, ...message }, "*");
+      window.postMessage({ source: PAGE_SOURCE, id, sessionId: context.session.id, ...message }, location.origin);
       setTimeout(() => {
         if (pending.has(id)) {
           pending.delete(id);

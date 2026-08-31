@@ -41,7 +41,7 @@
   }
 
   function postToPage(payload) {
-    window.postMessage({ source: EXT_SOURCE, ...payload }, "*");
+    window.postMessage({ source: EXT_SOURCE, ...payload }, location.origin);
   }
 
   function send(message) {
