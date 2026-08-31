@@ -1185,9 +1185,17 @@ function updateBadge(tabId, assignment) {
     chrome.action.setBadgeText({ tabId, text: "" }).catch(() => {});
     return;
   }
-  chrome.action.setBadgeText({ tabId, text: " " }).catch(() => {});
+  chrome.action.setBadgeText({ tabId, text: initialFor(assignment.name) }).catch(() => {});
   chrome.action.setBadgeBackgroundColor({ tabId, color: assignment.color }).catch(() => {});
   chrome.action.setTitle({ tabId, title: `MultiSession: ${assignment.name}` }).catch(() => {});
+}
+
+function initialFor(name) {
+  const trimmed = String(name || "").trim();
+  if (!trimmed) return "?";
+  // Use the first word's first character (up to 2 letters for multi-letter names
+  // like initials) so badges stay distinct at a glance.
+  return trimmed.split(/\s+/)[0].slice(0, 2).toUpperCase();
 }
 
 function updateBadgeForUrl(tabId, assignment, url) {

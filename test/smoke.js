@@ -98,7 +98,7 @@ async function main() {
     await waitMarker(pageS, 8000);
 
     const badgeText = await evalSW(swSession, `chrome.action.getBadgeText({ tabId: ${tabIdS} }).then((value) => JSON.stringify(value)).catch((error) => JSON.stringify({ error: String(error) }))`);
-    check("badge shows session initial", JSON.parse(badgeText) === "S", badgeText);
+    check("badge shows session initial", JSON.parse(badgeText) === "SM", badgeText);
 
     // HTTP Set-Cookie inside the assigned tab -> captured into session
     await pageS.goto(`${server.origin}/set?name=sid&value=SESSVAL`, { waitUntil: "load" });
