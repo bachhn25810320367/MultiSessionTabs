@@ -27,7 +27,7 @@ Isolation is strong but not airtight. Known gaps:
 
 1. **The site's own service worker is never patched.** Chrome only allows classic scripts (no `blob:`) in `ServiceWorker` init scripts, so a site's service worker sees the origin's real IndexedDB and caches, un-prefixed and shared across sessions.
 2. **A small inject race window remains.** The page patch is injected as early as possible, but for a few tens of milliseconds after navigation a page can potentially read unprefixed `localStorage`/IndexedDB before the patch lands. Reduced, not eliminated.
-3. **"Delete session" leaves prefixed storage keys behind.** Deleting a session removes its cookie store, but keys the page already wrote into the origin's `localStorage`/IndexedDB under the `mst:<sessionId>:` prefix are not cleaned up.
+3. **"Delete session" cleans only open tabs.** Deleting a session removes its cookie store, scrubs the `mst:<sessionId>:`-prefixed keys the page wrote into `localStorage`/caches/IndexedDB of every currently open tab on the session's domain, and reloads its tabs. Data left in origins with no open tab at delete time is not cleaned up until its session is deleted from a tab on that site.
 4. **Storage events leak the prefix.** Other (non-session) tabs on the same origin observing `storage` events see the session's writes under their prefixed key names.
 
 ## Existing projects inspected

@@ -315,15 +315,72 @@ async function deleteSessionFromMessage(message) {
   await chrome.storage.local.remove(cookieStoreKey(session.id));
   const stored = await chrome.storage.session.get(null);
   const keysToRemove = [];
+  const assignedTabIds = [];
   for (const [key, assignment] of Object.entries(stored)) {
     if (!key.startsWith(TAB_PREFIX) || assignment?.sessionId !== session.id) continue;
     const tabId = Number(key.slice(TAB_PREFIX.length));
     await removeRulesForTab(tabId);
     updateBadge(tabId, null);
     keysToRemove.push(key, ruleKey(tabId));
+    assignedTabIds.push(tabId);
   }
   if (keysToRemove.length) await chrome.storage.session.remove(keysToRemove);
+  // Scrub the prefixed localStorage/caches/IndexedDB entries the page wrote
+  // into the origin, then reload the tabs that were using this session.
+  await purgeSessionSiteData(session, assignedTabIds).catch((error) => console.error(error));
   return { ok: true };
+}
+
+async function purgeSessionSiteData(session, assignedTabIds) {
+  const prefix = `mst:${session.id}:`;
+  const domainKey = session.domainKey || domainKeyFromHost(session.siteKey);
+  const tabs = await chrome.tabs.query({}).catch(() => []);
+  for (const tab of tabs) {
+    const url = safeUrl(tab.url);
+    if (!url || !/^https?:$/.test(url.protocol)) continue;
+    const host = url.hostname.toLowerCase();
+    if (host !== session.siteKey && !(domainKey && host.endsWith(`.${domainKey}`))) continue;
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id, allFrames: true },
+      // ISOLATED world: shares the origin's real storage, but window.localStorage
+      // there is not the session's patched proxy, so native keys are reachable.
+      world: "ISOLATED",
+      func: purgeSessionStorageForPrefix,
+      args: [prefix]
+    }).catch(() => {});
+  }
+  for (const tabId of assignedTabIds) {
+    chrome.tabs.reload(tabId).catch(() => {});
+  }
+}
+
+// Runs in the page's ISOLATED world. Prefixes mirror installPageContext:
+// storage keys get "<prefix>localStorage:" / "<prefix>sessionStorage:",
+// CacheStorage names get "<prefix>cache:", IndexedDB names get "<prefix>idb:".
+function purgeSessionStorageForPrefix(prefix) {
+  for (const storage of [window.localStorage, window.sessionStorage]) {
+    if (!storage) continue;
+    const doomed = [];
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+      if (key && key.startsWith(prefix)) doomed.push(key);
+    }
+    for (const key of doomed) storage.removeItem(key);
+  }
+  if (window.caches && typeof caches.keys === "function") {
+    caches.keys()
+      .then((names) => Promise.all(names.filter((name) => name.startsWith(`${prefix}cache:`)).map((name) => caches.delete(name))))
+      .catch(() => {});
+  }
+  if (window.indexedDB && typeof indexedDB.databases === "function") {
+    indexedDB.databases()
+      .then((databases) => {
+        for (const database of databases) {
+          if (database.name && database.name.startsWith(`${prefix}idb:`)) indexedDB.deleteDatabase(database.name);
+        }
+      })
+      .catch(() => {});
+  }
 }
 
 async function clearTabFromMessage(message) {
@@ -939,9 +996,16 @@ function cookieRule(tabId, seed, priority, regexFilter, cookieHeader) {
 
 async function removeRulesForTab(tabId) {
   const stored = await chrome.storage.session.get(ruleKey(tabId));
-  const ruleIds = stored[ruleKey(tabId)] || [];
-  if (ruleIds.length) {
-    await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: ruleIds });
+  const ruleIds = new Set(stored[ruleKey(tabId)] || []);
+  // Also sweep rules still attached to this tab whose ids were lost from the
+  // ruleKey (apply/remove races), otherwise they block future adds with a
+  // duplicate-id error and keep steering the tab forever.
+  const allRules = await chrome.declarativeNetRequest.getSessionRules().catch(() => []);
+  for (const rule of allRules) {
+    if (rule.condition?.tabIds?.includes(tabId)) ruleIds.add(rule.id);
+  }
+  if (ruleIds.size) {
+    await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [...ruleIds] });
   }
   await chrome.storage.session.remove(ruleKey(tabId));
 }
