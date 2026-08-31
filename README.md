@@ -21,6 +21,15 @@ For assigned tabs, the service worker installs tab-scoped `declarativeNetRequest
 
 The service worker injects a main-world page patcher for assigned tabs. The isolated content script stays as the bridge for cookie writes back into extension storage.
 
+## Limitations
+
+Isolation is strong but not airtight. Known gaps:
+
+1. **The site's own service worker is never patched.** Chrome only allows classic scripts (no `blob:`) in `ServiceWorker` init scripts, so a site's service worker sees the origin's real IndexedDB and caches, un-prefixed and shared across sessions.
+2. **A small inject race window remains.** The page patch is injected as early as possible, but for a few tens of milliseconds after navigation a page can potentially read unprefixed `localStorage`/IndexedDB before the patch lands. Reduced, not eliminated.
+3. **"Delete session" leaves prefixed storage keys behind.** Deleting a session removes its cookie store, but keys the page already wrote into the origin's `localStorage`/IndexedDB under the `mst:<sessionId>:` prefix are not cleaned up.
+4. **Storage events leak the prefix.** Other (non-session) tabs on the same origin observing `storage` events see the session's writes under their prefixed key names.
+
 ## Existing projects inspected
 
 - SessionHub extension build: useful DNR + storage-prefix architecture, but minified and hardcoded to store its own extension ID.
