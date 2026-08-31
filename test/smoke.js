@@ -60,7 +60,11 @@ async function main() {
     args: [
       `--user-data-dir=${userDataDir}`,
       `--disable-extensions-except=${EXTENSION_ROOT}`,
-      `--load-extension=${EXTENSION_ROOT}`
+      `--load-extension=${EXTENSION_ROOT}`,
+      // GitHub Actions ubuntu runners disable unprivileged user namespaces
+      // (AppArmor restriction on Ubuntu 23.10+), which kills the Chrome zygote
+      // sandbox at launch. The smoke suite does not rely on the sandbox.
+      ...(process.platform === "linux" ? ["--no-sandbox", "--disable-setuid-sandbox"] : [])
     ]
   });
 
