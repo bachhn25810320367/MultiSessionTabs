@@ -208,6 +208,27 @@ async function main() {
       !parsedAfter.ids.includes(tempSession.id) && !parsedAfter.cookieStoreLeft && parsedAfter.assignment === null,
       afterDelete
     );
+
+    // Startup purge: expired cookies must be removed from storage.local stores
+    // while live ones are kept. Seeds both into the first session's store.
+    const purgeResult = await evalSW(swSession, `(async () => {
+      const sessions = await getAllSessions();
+      const key = "mst:cookies:" + sessions[0].id;
+      const stored = await chrome.storage.local.get(key);
+      const store = { ...(stored[key] || {}) };
+      store["stale.example.test|/|mstStale"] = { name: "mstStale", domain: "stale.example.test", path: "/", expiresAt: Date.now() - 1000 };
+      store["live.example.test|/|mstLive"] = { name: "mstLive", domain: "live.example.test", path: "/", expiresAt: Date.now() + 3600000 };
+      await chrome.storage.local.set({ [key]: store });
+      await purgeExpiredStoredCookies();
+      const after = (await chrome.storage.local.get(key))[key] || {};
+      return JSON.stringify({
+        staleGone: !after["stale.example.test|/|mstStale"],
+        liveKept: Boolean(after["live.example.test|/|mstLive"])
+      });
+    })()`);
+    const parsedPurge = JSON.parse(purgeResult);
+    check("expired cookies purged from storage.local", parsedPurge.staleGone && parsedPurge.liveKept, purgeResult);
+
   } finally {
     await browser.close().catch(() => {});
     await new Promise((resolve) => server.instance.close(resolve));
