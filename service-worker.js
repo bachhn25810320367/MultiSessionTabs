@@ -6,6 +6,8 @@ const MSG = {
   OPEN_SESSION: "session:open",
   ASSIGN_TAB: "tab:assign",
   CLEAR_TAB: "tab:clear",
+  RENAME_SESSION: "session:rename",
+  DELETE_SESSION: "session:delete",
   CONTENT_SET_COOKIE: "content:setCookie",
   CONTENT_DELETE_COOKIE: "content:deleteCookie",
   CONTENT_GET_COOKIES: "content:getCookies"
@@ -204,6 +206,10 @@ async function handleMessage(message, sender) {
       return assignTabFromMessage(message);
     case MSG.CLEAR_TAB:
       return clearTabFromMessage(message);
+    case MSG.RENAME_SESSION:
+      return renameSessionFromMessage(message);
+    case MSG.DELETE_SESSION:
+      return deleteSessionFromMessage(message);
     case MSG.CONTENT_SET_COOKIE:
       return setCookieFromContent(message, sender);
     case MSG.CONTENT_DELETE_COOKIE:
@@ -266,6 +272,41 @@ async function assignTabFromMessage(message) {
   await assignTabToSession(tab.id, session, message.url || tab.url);
   chrome.tabs.reload(tab.id).catch(() => {});
   setTimeout(() => applyRulesForTab(tab.id, message.url || tab.url).catch(() => {}), 1000);
+  return { ok: true };
+}
+
+async function renameSessionFromMessage(message) {
+  const name = cleanName(message.name);
+  if (!name) return { ok: false, error: "Empty name" };
+  const sessions = await getAllSessions();
+  const session = sessions.find((item) => item.id === message.sessionId);
+  if (!session) return { ok: false, error: "Missing session" };
+  session.name = name;
+  await chrome.storage.local.set({ [LOCAL_SESSIONS]: sessions });
+  const stored = await chrome.storage.session.get(null);
+  for (const [key, assignment] of Object.entries(stored)) {
+    if (!key.startsWith(TAB_PREFIX) || assignment?.sessionId !== session.id) continue;
+    await chrome.storage.session.set({ [key]: { ...assignment, name } });
+  }
+  return { ok: true, session };
+}
+
+async function deleteSessionFromMessage(message) {
+  const sessions = await getAllSessions();
+  const session = sessions.find((item) => item.id === message.sessionId);
+  if (!session) return { ok: false, error: "Missing session" };
+  await chrome.storage.local.set({ [LOCAL_SESSIONS]: sessions.filter((item) => item.id !== session.id) });
+  await chrome.storage.local.remove(cookieStoreKey(session.id));
+  const stored = await chrome.storage.session.get(null);
+  const keysToRemove = [];
+  for (const [key, assignment] of Object.entries(stored)) {
+    if (!key.startsWith(TAB_PREFIX) || assignment?.sessionId !== session.id) continue;
+    const tabId = Number(key.slice(TAB_PREFIX.length));
+    await removeRulesForTab(tabId);
+    updateBadge(tabId, null);
+    keysToRemove.push(key, ruleKey(tabId));
+  }
+  if (keysToRemove.length) await chrome.storage.session.remove(keysToRemove);
   return { ok: true };
 }
 

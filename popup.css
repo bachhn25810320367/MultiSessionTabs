@@ -9,7 +9,7 @@
 
 body {
   margin: 0;
-  min-width: 340px;
+  min-width: 360px;
   color: #172033;
   background: #f7f8fb;
 }
@@ -117,7 +117,7 @@ ul {
 
 li {
   display: grid;
-  grid-template-columns: 12px 1fr auto auto;
+  grid-template-columns: 12px 1fr auto auto auto;
   align-items: center;
   gap: 8px;
   padding: 8px 0;
@@ -136,6 +136,18 @@ li {
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: pointer;
+}
+
+.name input.rename {
+  width: 100%;
+  height: 26px;
+  padding: 0 8px;
+  font-size: 13px;
+}
+
+button.small.danger-text {
+  color: #be123c;
 }
 
 .meta {

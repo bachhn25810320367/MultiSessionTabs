@@ -5,7 +5,9 @@ const MSG = {
   CREATE_SESSION: "session:create",
   OPEN_SESSION: "session:open",
   ASSIGN_TAB: "tab:assign",
-  CLEAR_TAB: "tab:clear"
+  CLEAR_TAB: "tab:clear",
+  RENAME_SESSION: "session:rename",
+  DELETE_SESSION: "session:delete"
 };
 
 const elements = {
@@ -100,13 +102,68 @@ function render() {
     dot.style.background = session.color;
     const label = document.createElement("span");
     label.innerHTML = `<span class="name"></span><span class="meta"></span>`;
-    label.querySelector(".name").textContent = session.name;
+    const nameSpan = label.querySelector(".name");
+    nameSpan.textContent = session.name;
+    nameSpan.title = "Click to rename";
+    nameSpan.addEventListener("click", () => startRename(session, nameSpan));
     label.querySelector(".meta").textContent = `${session.cookieCount} cookies`;
     const open = button("Open", () => openSession(session.id));
     const here = button("Here", () => assignSession(session.id));
-    item.append(dot, label, open, here);
+    item.append(dot, label, open, here, deleteButton(session));
     elements.list.append(item);
   }
+}
+
+function startRename(session, nameSpan) {
+  const input = document.createElement("input");
+  input.type = "text";
+  input.maxLength = 40;
+  input.value = session.name;
+  input.className = "rename";
+  nameSpan.replaceChildren(input);
+  input.focus();
+  input.select();
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") render();
+    else if (event.key === "Enter") renameSession(session.id, input.value);
+  });
+  input.addEventListener("blur", () => {
+    if (input.isConnected) render();
+  });
+}
+
+async function renameSession(sessionId, value) {
+  try {
+    const response = await send({ type: MSG.RENAME_SESSION, sessionId, name: value });
+    if (response?.ok) {
+      state = await send({ type: MSG.GET_STATE });
+      render();
+    } else renderError(response?.error || "Failed");
+  } catch (error) {
+    renderError(error.message || String(error));
+  }
+}
+
+function deleteButton(session) {
+  let confirming = false;
+  const node = button("Delete", async () => {
+    if (!confirming) {
+      confirming = true;
+      node.textContent = "Sure?";
+      return;
+    }
+    try {
+      const response = await send({ type: MSG.DELETE_SESSION, sessionId: session.id });
+      if (response?.ok) {
+        state = await send({ type: MSG.GET_STATE });
+        render();
+      } else renderError(response?.error || "Failed");
+    } catch (error) {
+      renderError(error.message || String(error));
+    }
+  });
+  node.classList.add("danger-text");
+  return node;
 }
 
 function renderError(message) {

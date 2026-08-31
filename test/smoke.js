@@ -182,6 +182,32 @@ async function main() {
     await waitMarker(pageS, 8000);
     const sibCookie = await echoCookies(pageS);
     check("sibling subdomain cookie captured into session", sibCookie.includes("auth=SESSB"), sibCookie);
+
+    // Session management handlers: rename and delete (tab ends up unassigned).
+    const tempCreate = await evalSW(swSession, `handleMessage({ type: "session:create", tabId: ${tabIdS}, url: ${JSON.stringify(pageS.url())}, mode: "current", name: "Temp" }, {})
+      .then((value) => JSON.stringify(value)).catch((error) => JSON.stringify({ ok: false, error: String(error) }))`);
+    const tempSession = JSON.parse(tempCreate).session;
+    check("management session created", Boolean(tempSession?.id), tempCreate);
+    const renameResp = await evalSW(swSession, `handleMessage({ type: "session:rename", sessionId: ${JSON.stringify(tempSession.id)}, name: "Temp2" }, {})
+      .then((value) => JSON.stringify(value)).catch((error) => JSON.stringify({ ok: false, error: String(error) }))`);
+    check("session renamed", JSON.parse(renameResp)?.ok === true && JSON.parse(renameResp).session.name === "Temp2", renameResp);
+    const liveAssignment = await evalSW(swSession, `getTabAssignment(${tabIdS}).then((value) => JSON.stringify(value))`);
+    check("live assignment shows new name", JSON.parse(liveAssignment)?.name === "Temp2", liveAssignment);
+    const deleteResp = await evalSW(swSession, `handleMessage({ type: "session:delete", sessionId: ${JSON.stringify(tempSession.id)} }, {})
+      .then((value) => JSON.stringify(value)).catch((error) => JSON.stringify({ ok: false, error: String(error) }))`);
+    check("session deleted", JSON.parse(deleteResp)?.ok === true, deleteResp);
+    const afterDelete = await evalSW(swSession, `Promise.all([getAllSessions(), chrome.storage.local.get(null), getTabAssignment(${tabIdS})])
+      .then(([sessions, local, assignment]) => JSON.stringify({
+        ids: sessions.map((session) => session.id),
+        cookieStoreLeft: Boolean(local[${JSON.stringify(`mst:cookies:${tempSession.id}`)}]),
+        assignment
+      }))`);
+    const parsedAfter = JSON.parse(afterDelete);
+    check(
+      "deleted session fully cleaned up",
+      !parsedAfter.ids.includes(tempSession.id) && !parsedAfter.cookieStoreLeft && parsedAfter.assignment === null,
+      afterDelete
+    );
   } finally {
     await browser.close().catch(() => {});
     await new Promise((resolve) => server.instance.close(resolve));
