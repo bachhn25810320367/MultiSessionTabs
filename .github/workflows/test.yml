@@ -33,7 +33,11 @@ jobs:
           node test/smoke.js 2>&1 | tee smoke-output.log
 
       # Logs need authentication to read; job annotations are public API, so
-      # re-emit the tail of the smoke output as ::error:: annotations.
-      - name: Surface smoke failure
+      # re-emit parts of the smoke output as ::warning:: annotations.
+      - name: Surface smoke failure (head)
         if: failure()
-        run: node -e "const fs=require('fs');const lines=fs.readFileSync('smoke-output.log','utf8').trim().split('\n');for(const line of lines.slice(-10))console.log('::error::'+line.slice(0,400))"
+        run: node -e "const fs=require('fs');const lines=fs.readFileSync('smoke-output.log','utf8').trim().split('\n');for(const line of lines.slice(0,10))console.log('::warning::'+line.slice(0,400))"
+
+      - name: Surface smoke failure (errors)
+        if: failure()
+        run: node -e "const fs=require('fs');const lines=fs.readFileSync('smoke-output.log','utf8').trim().split('\n');const hits=lines.filter(l=>/signal|FATAL|ERROR|Error|Check failed|assert|Trace|TRACE|Not found|not found|EACCES|ENOENT/i.test(l));for(const line of hits.slice(0,10))console.log('::warning::'+line.slice(0,400))"
