@@ -516,7 +516,12 @@ function installPageContext(context) {
       configurable: true,
       enumerable: true,
       get() {
-        return visibleCookies.map((cookie) => `${cookie.name}=${cookie.value}`).join("; ");
+        const secureOk = location.protocol === "https:";
+        const requestPath = location.pathname || "/";
+        return visibleCookies
+          .filter((cookie) => (!cookie.secure || secureOk) && cookiePathMatches(cookie.path || "/", requestPath))
+          .map((cookie) => `${cookie.name}=${cookie.value}`)
+          .join("; ");
       },
       set(value) {
         const parsed = parseCookieAssignment(value);
@@ -530,16 +535,36 @@ function installPageContext(context) {
     Object.defineProperty(Document.prototype, "cookie", descriptor);
   }
 
+  function cookiePathMatches(cookiePath, requestPath) {
+    const path = cookiePath || "/";
+    return requestPath === path || requestPath.startsWith(path.endsWith("/") ? path : `${path}/`) || path === "/";
+  }
+
+  function toCookieRecord(cookie) {
+    return {
+      name: cookie.name,
+      value: cookie.value,
+      domain: cookie.domain,
+      path: cookie.path,
+      expires: cookie.expiresAt ?? null,
+      secure: cookie.secure,
+      sameSite: cookie.sameSite
+    };
+  }
+
   function patchCookieStore() {
     if (!("cookieStore" in window)) return;
     const store = {
       async get(nameOrOptions) {
         const name = typeof nameOrOptions === "string" ? nameOrOptions : nameOrOptions?.name;
-        return visibleCookies.find((cookie) => cookie.name === name) || null;
+        const cookie = visibleCookies.find((item) => item.name === name);
+        return cookie ? toCookieRecord(cookie) : null;
       },
       async getAll(options = {}) {
-        if (!options.name) return [...visibleCookies];
-        return visibleCookies.filter((cookie) => cookie.name === options.name);
+        const found = options.name
+          ? visibleCookies.filter((item) => item.name === options.name)
+          : [...visibleCookies];
+        return found.map(toCookieRecord);
       },
       async set(nameOrOptions, value) {
         const options = typeof nameOrOptions === "string" ? { name: nameOrOptions, value } : nameOrOptions;
@@ -899,6 +924,12 @@ function cookieHeaderForUrl(cookies, url) {
   if (!parsed) return "";
   return cookies
     .filter((cookie) => cookieMatchesUrl(cookie, parsed))
+    // RFC 6265 order: longer paths first, then earliest creation time.
+    .sort((first, second) => {
+      const pathDelta = (second.path || "").length - (first.path || "").length;
+      if (pathDelta !== 0) return pathDelta;
+      return (first.createdAt || 0) - (second.createdAt || 0);
+    })
     .map((cookie) => `${cookie.name}=${cookie.value}`)
     .join("; ");
 }
@@ -960,21 +991,7 @@ function parseSetCookie(header, sourceUrl) {
 }
 
 function splitCookieParts(header) {
-  const parts = [];
-  let start = 0;
-  let inExpires = false;
-  for (let index = 0; index < header.length; index += 1) {
-    const char = header[index];
-    if (char === ";") {
-      parts.push(header.slice(start, index).trim());
-      start = index + 1;
-      inExpires = false;
-    } else if (!inExpires && header.slice(index, index + 8).toLowerCase() === "expires=") {
-      inExpires = true;
-    }
-  }
-  parts.push(header.slice(start).trim());
-  return parts.filter(Boolean);
+  return String(header).split(";").map((part) => part.trim()).filter(Boolean);
 }
 
 function publicCookie(cookie) {

@@ -31,8 +31,12 @@ if (document.readyState === "loading") {
 elements.newTab.addEventListener("click", () => createSession("new"));
 elements.useHere.addEventListener("click", () => createSession("current"));
 elements.leave.addEventListener("click", async () => {
-  await send({ type: MSG.CLEAR_TAB });
-  window.close();
+  try {
+    await send({ type: MSG.CLEAR_TAB });
+    window.close();
+  } catch (error) {
+    renderError(error.message || String(error));
+  }
 });
 
 async function init() {
@@ -45,22 +49,34 @@ async function init() {
 }
 
 async function createSession(mode) {
-  const name = elements.name.value.trim();
-  const response = await send({ type: MSG.CREATE_SESSION, mode, name });
-  if (response?.ok) window.close();
-  else renderError(response?.error || "Failed");
+  try {
+    const name = elements.name.value.trim();
+    const response = await send({ type: MSG.CREATE_SESSION, mode, name });
+    if (response?.ok) window.close();
+    else renderError(response?.error || "Failed");
+  } catch (error) {
+    renderError(error.message || String(error));
+  }
 }
 
 async function openSession(sessionId) {
-  const response = await send({ type: MSG.OPEN_SESSION, sessionId, url: state.tab.url });
-  if (response?.ok) window.close();
-  else renderError(response?.error || "Failed");
+  try {
+    const response = await send({ type: MSG.OPEN_SESSION, sessionId, url: state.tab.url });
+    if (response?.ok) window.close();
+    else renderError(response?.error || "Failed");
+  } catch (error) {
+    renderError(error.message || String(error));
+  }
 }
 
 async function assignSession(sessionId) {
-  const response = await send({ type: MSG.ASSIGN_TAB, sessionId, url: state.tab.url });
-  if (response?.ok) window.close();
-  else renderError(response?.error || "Failed");
+  try {
+    const response = await send({ type: MSG.ASSIGN_TAB, sessionId, url: state.tab.url });
+    if (response?.ok) window.close();
+    else renderError(response?.error || "Failed");
+  } catch (error) {
+    renderError(error.message || String(error));
+  }
 }
 
 function render() {
