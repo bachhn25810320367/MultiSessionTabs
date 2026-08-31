@@ -75,11 +75,43 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 });
 
 chrome.commands.onCommand.addListener(async (command) => {
-  if (command !== "new-session-tab") return;
-  const tab = await getActiveTab();
-  if (!isSupportedUrl(tab?.url)) return;
-  await createSessionForTab(tab, { mode: "new" });
+  if (command === "new-session-tab") {
+    const tab = await getActiveTab();
+    if (!isSupportedUrl(tab?.url)) return;
+    await createSessionForTab(tab, { mode: "new" });
+  } else if (command === "switch-session") {
+    const tab = await getActiveTab();
+    if (!isSupportedUrl(tab?.url)) return;
+    await switchToNextSession(tab);
+  }
 });
+
+chrome.contextMenus.create({
+  id: "open-in-session",
+  title: "Open in new isolated session",
+  contexts: ["page", "link"],
+  documentUrlPatterns: ["http://*", "https://*"]
+});
+
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId !== "open-in-session" || !tab) return;
+  const url = info.selectionUrl || info.pageUrl;
+  if (!isSupportedUrl(url)) return;
+  await createSessionForTab(tab, { mode: "new", url });
+});
+
+// Re-assign the current tab to the next session for its site, wrapping around.
+async function switchToNextSession(tab) {
+  if (!isSupportedUrl(tab?.url)) return;
+  const sessions = await getSessionsForSite(siteKeyFromUrl(tab.url));
+  if (!sessions.length) return;
+  const current = await getTabAssignment(tab.id);
+  const index = sessions.findIndex((session) => session.id === current?.sessionId);
+  const next = sessions[(index + 1) % sessions.length];
+  await assignTabToSession(tab.id, next, tab.url);
+  chrome.tabs.reload(tab.id).catch(() => {});
+  setTimeout(() => applyRulesForTab(tab.id, tab.url).catch(() => {}), 1000);
+}
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   pendingTabAssignments.delete(tabId);

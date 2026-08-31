@@ -6,6 +6,7 @@
   "version": "0.1.0",
   "description": "Run multiple isolated sessions for the same website in tabs in one Chrome window.",
   "permissions": [
+    "contextMenus",
     "cookies",
     "declarativeNetRequest",
     "scripting",
@@ -56,6 +57,13 @@
         "mac": "Command+Shift+Y"
       },
       "description": "Open current site in a new isolated session tab"
+    },
+    "switch-session": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+U",
+        "mac": "Command+Shift+U"
+      },
+      "description": "Switch current tab to the next session for this site"
     }
   },
   "minimum_chrome_version": "116"

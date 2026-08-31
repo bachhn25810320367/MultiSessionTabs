@@ -212,6 +212,10 @@ async function main() {
     const switchResp = await evalSW(swSession, `switchToNextSession({ id: ${tabIdS}, url: ${JSON.stringify(pageS.url())} }).then(() => getTabAssignment(${tabIdS})).then((value) => JSON.stringify(value)).catch((error) => JSON.stringify({ ok: false, error: String(error) }))`);
     const parsedSwitch = JSON.parse(switchResp);
     check("switch command cycles to next session", Boolean(parsedSwitch.sessionId) && parsedSwitch.sessionId !== tempSession.id, switchResp);
+    // Cycle back to the original session so the later delete flow sees the same assignment.
+    const switchBackResp = await evalSW(swSession, `switchToNextSession({ id: ${tabIdS}, url: ${JSON.stringify(pageS.url())} }).then(() => getTabAssignment(${tabIdS})).then((value) => JSON.stringify(value)).catch((error) => JSON.stringify({ ok: false, error: String(error) }))`);
+    const parsedSwitchBack = JSON.parse(switchBackResp);
+    check("switch command wraps back to the original session", parsedSwitchBack.sessionId === tempSession.id, switchBackResp);
     const popupStateJson = await evalSW(swSession, `getPopupState({ tabId: ${tabIdS} }).then((value) => JSON.stringify(value)).catch((error) => JSON.stringify({ ok: false, error: String(error) }))`);
     const popupState = JSON.parse(popupStateJson);
     const activeSession = popupState.sessions?.find((session) => session.id === popupState.assignment?.sessionId);
