@@ -49,7 +49,7 @@ async function echoCookies(page) {
 async function main() {
   const thirdParty = await startServer();
   // Reference the second server via a different hostname so the embedded frame
-  // is cross-origin by host (the same trick test/e2e.js uses for external origins).
+  // is cross-origin by host (different registrable domain on loopback).
   const childOrigin = thirdParty.origin.replace("//127.0.0.1", "//localhost");
   const server = await startServer({ frameChildOrigin: childOrigin });
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "mst-smoke-"));
