@@ -60,6 +60,11 @@ assert(Object.keys(viMessages).sort().join(",") === Object.keys(enMessages).sort
 assert(popupHtml.includes("data-i18n"), "popup.html must reference i18n messages via data-i18n attributes");
 assert(popupJs.includes("chrome.i18n.getMessage"), "popup.js must resolve strings via chrome.i18n.getMessage");
 
+const popupCss = fs.readFileSync(path.join(root, "popup.css"), "utf8");
+assert(popupJs.includes("tabCount"), "popup.js must show the per-session tab count");
+assert(popupJs.includes('"active"'), "popup.js must highlight the active session via an active class");
+assert(popupCss.includes("li.active"), "popup.css must style the active session row");
+
 console.log("static checks ok");
 
 function assert(condition, message) {

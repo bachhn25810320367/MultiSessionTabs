@@ -206,6 +206,10 @@ async function main() {
     check("session renamed", JSON.parse(renameResp)?.ok === true && JSON.parse(renameResp).session.name === "Temp2", renameResp);
     const liveAssignment = await evalSW(swSession, `getTabAssignment(${tabIdS}).then((value) => JSON.stringify(value))`);
     check("live assignment shows new name", JSON.parse(liveAssignment)?.name === "Temp2", liveAssignment);
+    const popupStateJson = await evalSW(swSession, `getPopupState({ tabId: ${tabIdS} }).then((value) => JSON.stringify(value)).catch((error) => JSON.stringify({ ok: false, error: String(error) }))`);
+    const popupState = JSON.parse(popupStateJson);
+    const activeSession = popupState.sessions?.find((session) => session.id === popupState.assignment?.sessionId);
+    check("popup state counts tabs and marks active session", Boolean(activeSession?.tabCount >= 1), popupStateJson);
     const deleteResp = await evalSW(swSession, `handleMessage({ type: "session:delete", sessionId: ${JSON.stringify(tempSession.id)} }, {})
       .then((value) => JSON.stringify(value)).catch((error) => JSON.stringify({ ok: false, error: String(error) }))`);
     check("session deleted", JSON.parse(deleteResp)?.ok === true, deleteResp);
