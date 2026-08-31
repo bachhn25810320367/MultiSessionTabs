@@ -42,6 +42,7 @@ elements.leave.addEventListener("click", async () => {
 });
 
 async function init() {
+  applyTranslations();
   try {
     state = await send({ type: MSG.GET_STATE });
     render();
@@ -50,12 +51,28 @@ async function init() {
   }
 }
 
+function applyTranslations() {
+  for (const node of document.querySelectorAll("[data-i18n]")) {
+    node.textContent = chrome.i18n.getMessage(node.dataset.i18n);
+  }
+  for (const node of document.querySelectorAll("[data-i18n-title]")) {
+    node.title = chrome.i18n.getMessage(node.dataset.i18nTitle);
+  }
+  for (const node of document.querySelectorAll("[data-i18n-placeholder]")) {
+    node.placeholder = chrome.i18n.getMessage(node.dataset.i18nPlaceholder);
+  }
+}
+
+function message(name, substitutions) {
+  return chrome.i18n.getMessage(name, substitutions) || name;
+}
+
 async function createSession(mode) {
   try {
     const name = elements.name.value.trim();
     const response = await send({ type: MSG.CREATE_SESSION, mode, name });
     if (response?.ok) window.close();
-    else renderError(response?.error || "Failed");
+    else renderError(response?.error || message("failed"));
   } catch (error) {
     renderError(error.message || String(error));
   }
@@ -65,7 +82,7 @@ async function openSession(sessionId) {
   try {
     const response = await send({ type: MSG.OPEN_SESSION, sessionId, url: state.tab.url });
     if (response?.ok) window.close();
-    else renderError(response?.error || "Failed");
+    else renderError(response?.error || message("failed"));
   } catch (error) {
     renderError(error.message || String(error));
   }
@@ -75,7 +92,7 @@ async function assignSession(sessionId) {
   try {
     const response = await send({ type: MSG.ASSIGN_TAB, sessionId, url: state.tab.url });
     if (response?.ok) window.close();
-    else renderError(response?.error || "Failed");
+    else renderError(response?.error || message("failed"));
   } catch (error) {
     renderError(error.message || String(error));
   }
@@ -83,16 +100,16 @@ async function assignSession(sessionId) {
 
 function render() {
   if (!state?.ok) {
-    renderError(state?.error || "Failed");
+    renderError(state?.error || message("failed"));
     return;
   }
-  elements.site.textContent = state.siteKey || "Unsupported page";
+  elements.site.textContent = state.siteKey || message("unsupportedPage");
   elements.unsupported.hidden = state.supported;
   elements.controls.hidden = !state.supported;
   elements.sessions.hidden = !state.supported || state.sessions.length === 0;
   elements.leave.hidden = !state.assignment;
   elements.status.style.background = state.assignment?.color || "#cbd5e1";
-  elements.status.title = state.assignment ? state.assignment.name : "Normal browser session";
+  elements.status.title = state.assignment ? state.assignment.name : message("normalSession");
   elements.list.textContent = "";
 
   for (const session of state.sessions) {
@@ -104,11 +121,11 @@ function render() {
     label.innerHTML = `<span class="name"></span><span class="meta"></span>`;
     const nameSpan = label.querySelector(".name");
     nameSpan.textContent = session.name;
-    nameSpan.title = "Click to rename";
+    nameSpan.title = message("clickToRename");
     nameSpan.addEventListener("click", () => startRename(session, nameSpan));
-    label.querySelector(".meta").textContent = `${session.cookieCount} cookies`;
-    const open = button("Open", () => openSession(session.id));
-    const here = button("Here", () => assignSession(session.id));
+    label.querySelector(".meta").textContent = message("cookieCount", [String(session.cookieCount)]);
+    const open = button(message("open"), () => openSession(session.id));
+    const here = button(message("here"), () => assignSession(session.id));
     item.append(dot, label, open, here, deleteButton(session));
     elements.list.append(item);
   }
@@ -138,7 +155,7 @@ async function renameSession(sessionId, value) {
     if (response?.ok) {
       state = await send({ type: MSG.GET_STATE });
       render();
-    } else renderError(response?.error || "Failed");
+    } else renderError(response?.error || message("failed"));
   } catch (error) {
     renderError(error.message || String(error));
   }
@@ -146,10 +163,10 @@ async function renameSession(sessionId, value) {
 
 function deleteButton(session) {
   let confirming = false;
-  const node = button("Delete", async () => {
+  const node = button(message("delete"), async () => {
     if (!confirming) {
       confirming = true;
-      node.textContent = "Sure?";
+      node.textContent = message("confirmDelete");
       return;
     }
     try {
@@ -157,7 +174,7 @@ function deleteButton(session) {
       if (response?.ok) {
         state = await send({ type: MSG.GET_STATE });
         render();
-      } else renderError(response?.error || "Failed");
+      } else renderError(response?.error || message("failed"));
     } catch (error) {
       renderError(error.message || String(error));
     }

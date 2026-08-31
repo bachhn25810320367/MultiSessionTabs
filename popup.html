@@ -11,27 +11,27 @@
       <header>
         <div>
           <h1>MultiSession</h1>
-          <p id="site">Loading...</p>
+          <p id="site" data-i18n="loading">Loading...</p>
         </div>
         <span id="status"></span>
       </header>
 
       <section id="unsupported" hidden>
-        <p>Open an http or https page first.</p>
+        <p data-i18n="openHttpPageFirst">Open an http or https page first.</p>
       </section>
 
       <section id="controls" hidden>
-        <label for="session-name">New session name</label>
+        <label for="session-name" data-i18n="newSessionName">New session name</label>
         <div class="row">
-          <input id="session-name" type="text" maxlength="40" placeholder="Work, Personal, QA...">
-          <button id="new-tab" title="Open current URL in a new isolated tab">New tab</button>
+          <input id="session-name" type="text" maxlength="40" placeholder="Work, Personal, QA..." data-i18n-placeholder="namePlaceholder">
+          <button id="new-tab" title="Open current URL in a new isolated tab" data-i18n="newTab" data-i18n-title="newTabTitle">New tab</button>
         </div>
-        <button id="use-here" class="secondary" title="Reload current tab into a new isolated session">Use here</button>
-        <button id="leave" class="danger" title="Return current tab to normal browser session" hidden>Leave session</button>
+        <button id="use-here" class="secondary" title="Reload current tab into a new isolated session" data-i18n="useHere" data-i18n-title="useHereTitle">Use here</button>
+        <button id="leave" class="danger" title="Return current tab to normal browser session" data-i18n="leaveSession" data-i18n-title="leaveSessionTitle" hidden>Leave session</button>
       </section>
 
       <section id="sessions" hidden>
-        <h2>Saved sessions</h2>
+        <h2 data-i18n="savedSessions">Saved sessions</h2>
         <ul id="session-list"></ul>
       </section>
     </main>

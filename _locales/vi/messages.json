@@ -1,0 +1,22 @@
+{
+  "loading": { "message": "Đang tải..." },
+  "unsupportedPage": { "message": "Trang không được hỗ trợ" },
+  "openHttpPageFirst": { "message": "Hãy mở một trang http hoặc https trước." },
+  "newSessionName": { "message": "Tên session mới" },
+  "namePlaceholder": { "message": "Công việc, Cá nhân, QA..." },
+  "newTab": { "message": "Tab mới" },
+  "newTabTitle": { "message": "Mở URL hiện tại trong một tab cách ly mới" },
+  "useHere": { "message": "Dùng tại đây" },
+  "useHereTitle": { "message": "Chuyển tab hiện tại sang một session cách ly mới" },
+  "leaveSession": { "message": "Rời session" },
+  "leaveSessionTitle": { "message": "Trả tab hiện tại về session thường của trình duyệt" },
+  "savedSessions": { "message": "Session đã lưu" },
+  "normalSession": { "message": "Session thường của trình duyệt" },
+  "clickToRename": { "message": "Bấm để đổi tên" },
+  "cookieCount": { "message": "$COUNT$ cookie", "placeholders": { "count": { "content": "$1" } } },
+  "open": { "message": "Mở" },
+  "here": { "message": "Tại đây" },
+  "delete": { "message": "Xóa" },
+  "confirmDelete": { "message": "Chắc chứ?" },
+  "failed": { "message": "Thất bại" }
+}

@@ -1,0 +1,22 @@
+{
+  "loading": { "message": "Loading..." },
+  "unsupportedPage": { "message": "Unsupported page" },
+  "openHttpPageFirst": { "message": "Open an http or https page first." },
+  "newSessionName": { "message": "New session name" },
+  "namePlaceholder": { "message": "Work, Personal, QA..." },
+  "newTab": { "message": "New tab" },
+  "newTabTitle": { "message": "Open current URL in a new isolated tab" },
+  "useHere": { "message": "Use here" },
+  "useHereTitle": { "message": "Reload current tab into a new isolated session" },
+  "leaveSession": { "message": "Leave session" },
+  "leaveSessionTitle": { "message": "Return current tab to normal browser session" },
+  "savedSessions": { "message": "Saved sessions" },
+  "normalSession": { "message": "Normal browser session" },
+  "clickToRename": { "message": "Click to rename" },
+  "cookieCount": { "message": "$COUNT$ cookies", "placeholders": { "count": { "content": "$1" } } },
+  "open": { "message": "Open" },
+  "here": { "message": "Here" },
+  "delete": { "message": "Delete" },
+  "confirmDelete": { "message": "Sure?" },
+  "failed": { "message": "Failed" }
+}
