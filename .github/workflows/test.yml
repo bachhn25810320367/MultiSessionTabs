@@ -28,4 +28,12 @@ jobs:
       # smoke.js launches headless Chrome (new headless supports extensions),
       # auto-discovering the binary installed above into .browsers/, so no xvfb needed.
       - name: Smoke test
-        run: node test/smoke.js
+        run: |
+          set -o pipefail
+          node test/smoke.js 2>&1 | tee smoke-output.log
+
+      # Logs need authentication to read; job annotations are public API, so
+      # re-emit the tail of the smoke output as ::error:: annotations.
+      - name: Surface smoke failure
+        if: failure()
+        run: node -e "const fs=require('fs');const lines=fs.readFileSync('smoke-output.log','utf8').trim().split('\n');for(const line of lines.slice(-10))console.log('::error::'+line.slice(0,400))"
