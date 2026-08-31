@@ -165,6 +165,15 @@ async function main() {
       childCookie || diagnostics.join(" | ")
     );
 
+    // A frame must not read session cookies by claiming a forged URL: the
+    // service worker must pin the request to the sender frame's real URL.
+    const legitCookies = await evalSW(swSession, `handleMessage({ type: "content:getCookies", url: ${JSON.stringify(server.origin + "/echo")} }, { tab: { id: ${tabIdS} }, url: ${JSON.stringify(server.origin + "/echo")} })
+      .then((value) => JSON.stringify(value)).catch((error) => JSON.stringify({ ok: false, error: String(error) }))`);
+    check("legit frame URL returns session cookies", (JSON.parse(legitCookies).cookies || []).length > 0, legitCookies);
+    const forgedCookies = await evalSW(swSession, `handleMessage({ type: "content:getCookies", url: ${JSON.stringify(server.origin + "/echo")} }, { tab: { id: ${tabIdS} }, url: "http://forger.example.com/page" })
+      .then((value) => JSON.stringify(value)).catch((error) => JSON.stringify({ ok: false, error: String(error) }))`);
+    check("forged frame URL cannot read session cookies", (JSON.parse(forgedCookies).cookies || []).length === 0, forgedCookies);
+
     // Domain-scoped session: sign in on a sibling subdomain (like accounts.google.com
     // during a gemini.google.com login) and the auth cookie must follow the session.
     const port = new URL(server.origin).port;

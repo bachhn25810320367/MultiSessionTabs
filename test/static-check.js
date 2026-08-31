@@ -41,6 +41,10 @@ assert(contentScript.includes("chrome.runtime.sendMessage"), "content bridge mus
 assert(!contentScript.includes("storage.session"), "content bridge must not access storage.session directly");
 assert(contentScript.includes("content:setCookie"), "content bridge must forward setCookie");
 assert(contentScript.includes("content:deleteCookie"), "content bridge must forward deleteCookie");
+assert(!contentScript.includes('}, "*")'), "page bridge must not postMessage to targetOrigin \"*\"");
+
+assert(!serviceWorker.includes('...message }, "*")'), "page context bridge must not postMessage to targetOrigin \"*\"");
+assert(/getCookiesFromContent[\s\S]{0,600}sender\.url/.test(serviceWorker), "getCookiesFromContent must pin the URL to the sender frame");
 
 console.log("static checks ok");
 
