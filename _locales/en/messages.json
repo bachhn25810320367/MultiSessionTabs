@@ -14,6 +14,7 @@
   "normalSession": { "message": "Normal browser session" },
   "clickToRename": { "message": "Click to rename" },
   "cookieCount": { "message": "$COUNT$ cookies", "placeholders": { "count": { "content": "$1" } } },
+  "tabCount": { "message": "$COUNT$ tabs", "placeholders": { "count": { "content": "$1" } } },
   "open": { "message": "Open" },
   "here": { "message": "Here" },
   "delete": { "message": "Delete" },

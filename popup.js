@@ -114,6 +114,7 @@ function render() {
 
   for (const session of state.sessions) {
     const item = document.createElement("li");
+    if (state.assignment?.sessionId === session.id) item.classList.add("active");
     const dot = document.createElement("span");
     dot.className = "dot";
     dot.style.background = session.color;
@@ -123,7 +124,10 @@ function render() {
     nameSpan.textContent = session.name;
     nameSpan.title = message("clickToRename");
     nameSpan.addEventListener("click", () => startRename(session, nameSpan));
-    label.querySelector(".meta").textContent = message("cookieCount", [String(session.cookieCount)]);
+    label.querySelector(".meta").textContent = [
+      message("cookieCount", [String(session.cookieCount)]),
+      message("tabCount", [String(session.tabCount)])
+    ].join(" · ");
     const open = button(message("open"), () => openSession(session.id));
     const here = button(message("here"), () => assignSession(session.id));
     item.append(dot, label, open, here, deleteButton(session));

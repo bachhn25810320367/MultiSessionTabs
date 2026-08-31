@@ -150,6 +150,11 @@ button.small.danger-text {
   color: #be123c;
 }
 
+li.active {
+  box-shadow: inset 3px 0 0 #1d4ed8;
+  padding-left: 6px;
+}
+
 .meta {
   display: block;
   margin-top: 2px;

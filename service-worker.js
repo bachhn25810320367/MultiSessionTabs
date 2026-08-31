@@ -1135,10 +1135,19 @@ function publicCookie(cookie) {
 async function addSessionStats(sessions) {
   if (!sessions.length) return [];
   const storeKeys = sessions.map((session) => cookieStoreKey(session.id));
-  const stored = await chrome.storage.local.get(storeKeys);
+  const [stored, sessionStored] = await Promise.all([
+    chrome.storage.local.get(storeKeys),
+    chrome.storage.session.get(null)
+  ]);
+  const tabCounts = {};
+  for (const [key, assignment] of Object.entries(sessionStored)) {
+    if (!key.startsWith(TAB_PREFIX) || !assignment?.sessionId) continue;
+    tabCounts[assignment.sessionId] = (tabCounts[assignment.sessionId] || 0) + 1;
+  }
   return sessions.map((session) => ({
     ...session,
-    cookieCount: Object.values(stored[cookieStoreKey(session.id)] || {}).filter((cookie) => !isExpired(cookie)).length
+    cookieCount: Object.values(stored[cookieStoreKey(session.id)] || {}).filter((cookie) => !isExpired(cookie)).length,
+    tabCount: tabCounts[session.id] || 0
   }));
 }
 
