@@ -304,6 +304,26 @@ async function main() {
       parsedLeftover.ls.length === 0 && parsedLeftover.cs.length === 0 && parsedLeftover.dbs.length === 0,
       leftover
     );
+
+    // Delete with reload:false clears the assignment but does not reload the tab,
+    // so unsaved work in the page survives the deletion.
+    const noReloadCreate = await evalSW(swSession, `handleMessage({ type: "session:create", tabId: ${tabIdS}, url: ${JSON.stringify(pageS.url())}, mode: "current", name: "NoReload" }, {})
+      .then((value) => JSON.stringify(value)).catch((error) => JSON.stringify({ ok: false, error: String(error) }))`);
+    const noReloadSession = JSON.parse(noReloadCreate).session;
+    check("no-reload session created", Boolean(noReloadSession?.id), noReloadCreate);
+    await waitMarker(pageS, 8000);
+    await pageS.evaluate(() => { window.__mstKeepFlag = "kept"; });
+    const noReloadDelete = await evalSW(swSession, `handleMessage({ type: "session:delete", sessionId: ${JSON.stringify(noReloadSession.id)}, reload: false }, {})
+      .then((value) => JSON.stringify(value)).catch((error) => JSON.stringify({ ok: false, error: String(error) }))`);
+    check("no-reload session deleted", JSON.parse(noReloadDelete)?.ok === true, noReloadDelete);
+    await sleep(1200);
+    const keepFlag = await pageS.evaluate(() => window.__mstKeepFlag || "");
+    const assignmentAfterNoReload = await evalSW(swSession, `getTabAssignment(${tabIdS}).then((value) => JSON.stringify(value))`);
+    check(
+      "delete without reload keeps the page",
+      keepFlag === "kept" && !JSON.parse(assignmentAfterNoReload),
+      JSON.stringify({ keepFlag, assignmentAfterNoReload })
+    );
   } finally {
     await browser.close().catch(() => {});
     await new Promise((resolve) => server.instance.close(resolve));

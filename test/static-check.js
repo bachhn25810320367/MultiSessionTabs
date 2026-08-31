@@ -69,6 +69,10 @@ const popupCss = fs.readFileSync(path.join(root, "popup.css"), "utf8");
 assert(popupJs.includes("tabCount"), "popup.js must show the per-session tab count");
 assert(popupJs.includes('"active"'), "popup.js must highlight the active session via an active class");
 assert(popupCss.includes("li.active"), "popup.css must style the active session row");
+assert(popupCss.includes(".name::after"), "popup.css must show a rename affordance on the session name");
+assert(popupHtml.includes("reload-on-delete"), "popup.html must offer the delete reload toggle");
+assert(popupJs.includes("reloadOnDelete"), "popup.js must read the delete reload toggle");
+assert(/message\.reload !== false/.test(serviceWorker), "delete must reload tabs unless the caller opts out");
 
 console.log("static checks ok");
 
