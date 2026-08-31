@@ -159,6 +159,7 @@ async function handleCommittedNavigation(details) {
 }
 
 migrateLegacyCookieStore().catch(() => {});
+purgeExpiredStoredCookies().catch(() => {});
 
 async function migrateLegacyCookieStore() {
   const legacyKey = "mst:cookies";
@@ -171,6 +172,21 @@ async function migrateLegacyCookieStore() {
   }
   await chrome.storage.local.set(updates);
   await chrome.storage.local.remove(legacyKey);
+}
+
+// Expired cookies are filtered when read but previously never removed from
+// storage.local, so the stores grew without bound (10MB quota). Drop expired
+// entries from every mst:cookies:<id> store once at service worker startup.
+async function purgeExpiredStoredCookies() {
+  const stored = await chrome.storage.local.get(null);
+  const updates = {};
+  for (const [key, value] of Object.entries(stored)) {
+    if (!key.startsWith("mst:cookies:")) continue;
+    const entries = Object.entries(value || {});
+    const live = entries.filter(([, cookie]) => !isExpired(cookie));
+    if (live.length !== entries.length) updates[key] = Object.fromEntries(live);
+  }
+  if (Object.keys(updates).length) await chrome.storage.local.set(updates);
 }
 
 function addHeadersReceivedListener() {
