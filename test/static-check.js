@@ -11,7 +11,9 @@ assert(manifest.background?.service_worker === "service-worker.js", "Service wor
 assert(manifest.content_scripts?.[0]?.world === "ISOLATED", "Content script bridge must run in ISOLATED world");
 assert(manifest.permissions.includes("declarativeNetRequest"), "DNR permission missing");
 assert(manifest.permissions.includes("webRequest"), "webRequest permission missing");
+assert(manifest.permissions.includes("contextMenus"), "contextMenus permission missing");
 assert(manifest.host_permissions.includes("<all_urls>"), "host permissions missing");
+assert(manifest.commands?.["switch-session"], "switch-session command missing");
 
 for (const size of ["16", "32", "48", "128"]) {
   const iconPath = manifest.icons?.[size];
@@ -45,6 +47,9 @@ assert(!contentScript.includes('}, "*")'), "page bridge must not postMessage to 
 
 assert(!serviceWorker.includes('...message }, "*")'), "page context bridge must not postMessage to targetOrigin \"*\"");
 assert(/getCookiesFromContent[\s\S]{0,600}sender\.url/.test(serviceWorker), "getCookiesFromContent must pin the URL to the sender frame");
+assert(serviceWorker.includes("chrome.contextMenus.create"), "popup-open context menu missing");
+assert(serviceWorker.includes("chrome.contextMenus.onClicked"), "context menu click handler missing");
+assert(serviceWorker.includes("switchToNextSession"), "switch-to-next-session handler missing");
 
 const popupHtml = fs.readFileSync(path.join(root, "popup.html"), "utf8");
 const popupJs = fs.readFileSync(path.join(root, "popup.js"), "utf8");
