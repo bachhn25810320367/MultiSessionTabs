@@ -46,6 +46,20 @@ assert(!contentScript.includes('}, "*")'), "page bridge must not postMessage to 
 assert(!serviceWorker.includes('...message }, "*")'), "page context bridge must not postMessage to targetOrigin \"*\"");
 assert(/getCookiesFromContent[\s\S]{0,600}sender\.url/.test(serviceWorker), "getCookiesFromContent must pin the URL to the sender frame");
 
+const popupHtml = fs.readFileSync(path.join(root, "popup.html"), "utf8");
+const popupJs = fs.readFileSync(path.join(root, "popup.js"), "utf8");
+
+assert(manifest.default_locale === "en", "Manifest must declare default_locale en");
+for (const locale of ["en", "vi"]) {
+  assert(fs.existsSync(path.join(root, "_locales", locale, "messages.json")), `_locales/${locale}/messages.json missing`);
+}
+const enMessages = JSON.parse(fs.readFileSync(path.join(root, "_locales", "en", "messages.json"), "utf8"));
+const viMessages = JSON.parse(fs.readFileSync(path.join(root, "_locales", "vi", "messages.json"), "utf8"));
+assert(Object.keys(enMessages).length > 0, "en messages must not be empty");
+assert(Object.keys(viMessages).sort().join(",") === Object.keys(enMessages).sort().join(","), "en and vi message keys must match");
+assert(popupHtml.includes("data-i18n"), "popup.html must reference i18n messages via data-i18n attributes");
+assert(popupJs.includes("chrome.i18n.getMessage"), "popup.js must resolve strings via chrome.i18n.getMessage");
+
 console.log("static checks ok");
 
 function assert(condition, message) {
