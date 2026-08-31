@@ -13,6 +13,15 @@ assert(manifest.permissions.includes("declarativeNetRequest"), "DNR permission m
 assert(manifest.permissions.includes("webRequest"), "webRequest permission missing");
 assert(manifest.host_permissions.includes("<all_urls>"), "host permissions missing");
 
+for (const size of ["16", "32", "48", "128"]) {
+  const iconPath = manifest.icons?.[size];
+  assert(typeof iconPath === "string" && iconPath.length > 0, `manifest.icons["${size}"] missing`);
+  assert(fs.existsSync(path.join(root, iconPath)), `icon file missing: ${iconPath}`);
+  const actionIconPath = manifest.action?.default_icon?.[size];
+  assert(typeof actionIconPath === "string" && actionIconPath.length > 0, `action.default_icon["${size}"] missing`);
+}
+
+
 for (const file of ["service-worker.js", "content-script.js", "popup.html", "popup.js", "popup.css"]) {
   assert(fs.existsSync(path.join(root, file)), `${file} missing`);
 }
