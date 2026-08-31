@@ -11,6 +11,7 @@
   "leaveSession": { "message": "Leave session" },
   "leaveSessionTitle": { "message": "Return current tab to normal browser session" },
   "savedSessions": { "message": "Saved sessions" },
+  "reloadOnDelete": { "message": "Reload tabs after deleting" },
   "normalSession": { "message": "Normal browser session" },
   "clickToRename": { "message": "Click to rename" },
   "cookieCount": { "message": "$COUNT$ cookies", "placeholders": { "count": { "content": "$1" } } },

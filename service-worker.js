@@ -358,8 +358,14 @@ async function deleteSessionFromMessage(message) {
   }
   if (keysToRemove.length) await chrome.storage.session.remove(keysToRemove);
   // Scrub the prefixed localStorage/caches/IndexedDB entries the page wrote
-  // into the origin, then reload the tabs that were using this session.
+  // into the origin, then reload the tabs that were using this session unless
+  // the caller opts out (so unsaved page work is not lost).
   await purgeSessionSiteData(session, assignedTabIds).catch((error) => console.error(error));
+  if (message.reload !== false) {
+    for (const tabId of assignedTabIds) {
+      chrome.tabs.reload(tabId).catch(() => {});
+    }
+  }
   return { ok: true };
 }
 
@@ -380,9 +386,6 @@ async function purgeSessionSiteData(session, assignedTabIds) {
       func: purgeSessionStorageForPrefix,
       args: [prefix]
     }).catch(() => {});
-  }
-  for (const tabId of assignedTabIds) {
-    chrome.tabs.reload(tabId).catch(() => {});
   }
 }
 

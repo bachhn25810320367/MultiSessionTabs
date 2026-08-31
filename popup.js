@@ -17,6 +17,7 @@ const elements = {
   controls: document.getElementById("controls"),
   sessions: document.getElementById("sessions"),
   list: document.getElementById("session-list"),
+  reloadOnDelete: document.getElementById("reload-on-delete"),
   name: document.getElementById("session-name"),
   newTab: document.getElementById("new-tab"),
   useHere: document.getElementById("use-here"),
@@ -107,6 +108,7 @@ function render() {
   elements.unsupported.hidden = state.supported;
   elements.controls.hidden = !state.supported;
   elements.sessions.hidden = !state.supported || state.sessions.length === 0;
+  elements.reloadOnDelete.parentElement.hidden = state.sessions.length === 0;
   elements.leave.hidden = !state.assignment;
   elements.status.style.background = state.assignment?.color || "#cbd5e1";
   elements.status.title = state.assignment ? state.assignment.name : message("normalSession");
@@ -171,10 +173,11 @@ function deleteButton(session) {
     if (!confirming) {
       confirming = true;
       node.textContent = message("confirmDelete");
+      elements.reloadOnDelete.parentElement.hidden = false;
       return;
     }
     try {
-      const response = await send({ type: MSG.DELETE_SESSION, sessionId: session.id });
+      const response = await send({ type: MSG.DELETE_SESSION, sessionId: session.id, reload: elements.reloadOnDelete.checked });
       if (response?.ok) {
         state = await send({ type: MSG.GET_STATE });
         render();

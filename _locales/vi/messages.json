@@ -11,6 +11,7 @@
   "leaveSession": { "message": "Rời session" },
   "leaveSessionTitle": { "message": "Trả tab hiện tại về session thường của trình duyệt" },
   "savedSessions": { "message": "Session đã lưu" },
+  "reloadOnDelete": { "message": "Tải lại tab sau xóa" },
   "normalSession": { "message": "Session thường của trình duyệt" },
   "clickToRename": { "message": "Bấm để đổi tên" },
   "cookieCount": { "message": "$COUNT$ cookie", "placeholders": { "count": { "content": "$1" } } },
