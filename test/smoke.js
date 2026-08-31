@@ -100,6 +100,9 @@ async function main() {
     const badgeText = await evalSW(swSession, `chrome.action.getBadgeText({ tabId: ${tabIdS} }).then((value) => JSON.stringify(value)).catch((error) => JSON.stringify({ error: String(error) }))`);
     check("badge shows session initial", JSON.parse(badgeText) === "SM", badgeText);
 
+    const defaultNames = JSON.parse(await evalSW(swSession, `JSON.stringify({ first: sessionDefaultName(0), wrap: sessionDefaultName(COLORS.length) })`));
+    check("default session names use colors then numbers", defaultNames.first !== defaultNames.wrap && Boolean(defaultNames.first) && Boolean(defaultNames.wrap), JSON.stringify(defaultNames));
+
     // HTTP Set-Cookie inside the assigned tab -> captured into session
     await pageS.goto(`${server.origin}/set?name=sid&value=SESSVAL`, { waitUntil: "load" });
     await sleep(800);

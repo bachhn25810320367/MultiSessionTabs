@@ -50,6 +50,7 @@ assert(/getCookiesFromContent[\s\S]{0,600}sender\.url/.test(serviceWorker), "get
 assert(serviceWorker.includes("chrome.contextMenus.create"), "popup-open context menu missing");
 assert(serviceWorker.includes("chrome.contextMenus.onClicked"), "context menu click handler missing");
 assert(serviceWorker.includes("switchToNextSession"), "switch-to-next-session handler missing");
+assert(serviceWorker.includes("COLOR_NAMES"), "color-named default sessions missing");
 
 const popupHtml = fs.readFileSync(path.join(root, "popup.html"), "utf8");
 const popupJs = fs.readFileSync(path.join(root, "popup.js"), "utf8");

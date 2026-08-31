@@ -34,6 +34,7 @@ function ensureAssignedTabCache() {
   return assignedTabCachePromise;
 }
 const COLORS = ["#1d4ed8", "#047857", "#b45309", "#be123c", "#6d28d9", "#0f766e"];
+const COLOR_NAMES = ["Blue", "Green", "Orange", "Red", "Purple", "Teal"];
 const RESOURCE_TYPES = [
   "main_frame",
   "sub_frame",
@@ -475,7 +476,7 @@ async function createSessionForTab(tab, options = {}) {
     id: newId(),
     siteKey,
     domainKey: domainKeyFromHost(siteKey),
-    name: cleanName(options.name) || `Session ${existingCount + 1}`,
+    name: cleanName(options.name) || sessionDefaultName(existingCount),
     color: COLORS[existingCount % COLORS.length],
     createdAt: Date.now()
   };
@@ -1296,6 +1297,11 @@ function cleanName(value) {
 
 function newId() {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+}
+
+function sessionDefaultName(existingCount) {
+  if (existingCount < COLOR_NAMES.length) return COLOR_NAMES[existingCount];
+  return `Session ${existingCount + 1}`;
 }
 
 function tabKey(tabId) {
