@@ -222,6 +222,14 @@ async function main() {
       afterDelete
     );
 
+    // A session rule left behind without a matching ruleKey (e.g. from an
+    // apply/remove race) must still be removed by removeRulesForTab.
+    const zombieSeed = await evalSW(swSession, `chrome.declarativeNetRequest.updateSessionRules({ addRules: [{ id: 999001, priority: 1, condition: { tabIds: [${tabIdS}], resourceTypes: ["main_frame"] }, action: { type: "allow" } }] }).then(() => JSON.stringify({ ok: true })).catch((error) => JSON.stringify({ ok: false, error: String(error) }))`);
+    check("zombie rule seeded", JSON.parse(zombieSeed).ok === true, zombieSeed);
+    await evalSW(swSession, `removeRulesForTab(${tabIdS}).then(() => "ok")`);
+    const zombieCount = await evalSW(swSession, `chrome.declarativeNetRequest.getSessionRules().then((rules) => JSON.stringify(rules.filter((rule) => rule.condition.tabIds?.includes(${tabIdS})).length))`);
+    check("zombie session rule removed for tab", JSON.parse(zombieCount) === 0, zombieCount);
+
     // Startup purge: expired cookies must be removed from storage.local stores
     // while live ones are kept. Seeds both into the first session's store.
     const purgeResult = await evalSW(swSession, `(async () => {
@@ -242,6 +250,46 @@ async function main() {
     const parsedPurge = JSON.parse(purgeResult);
     check("expired cookies purged from storage.local", parsedPurge.staleGone && parsedPurge.liveKept, purgeResult);
 
+    // Deleting a session must also scrub the mst:<sessionId>: keys the page
+    // already wrote into the origin's localStorage/caches/IndexedDB.
+    const cleanupCreate = await evalSW(swSession, `handleMessage({ type: "session:create", tabId: ${tabIdS}, url: ${JSON.stringify(pageS.url())}, mode: "current", name: "Cleanup" }, {})
+      .then((value) => JSON.stringify(value)).catch((error) => JSON.stringify({ ok: false, error: String(error) }))`);
+    const cleanupSession = JSON.parse(cleanupCreate).session;
+    check("cleanup session created", Boolean(cleanupSession?.id), cleanupCreate);
+    await waitMarker(pageS, 8000);
+    await pageS.evaluate(async () => {
+      localStorage.setItem("keepme", "session-data");
+      sessionStorage.setItem("keepme", "session-data");
+      await caches.open("v1");
+      await new Promise((resolve) => {
+        const request = indexedDB.open("testdb", 1);
+        request.onupgradeneeded = () => request.result.createObjectStore("kv");
+        request.onsuccess = () => {
+          request.result.close();
+          resolve();
+        };
+        request.onerror = resolve;
+      });
+    });
+    const cleanupPrefix = `mst:${cleanupSession.id}:`;
+    const cleanupDelete = await evalSW(swSession, `handleMessage({ type: "session:delete", sessionId: ${JSON.stringify(cleanupSession.id)} }, {})
+      .then((value) => JSON.stringify(value)).catch((error) => JSON.stringify({ ok: false, error: String(error) }))`);
+    check("cleanup session deleted", JSON.parse(cleanupDelete)?.ok === true, cleanupDelete);
+    await sleep(1200);
+    const pageU = await browser.newPage();
+    await pageU.goto(`${new URL(pageS.url()).origin}/bench-load.html?i=after-delete`, { waitUntil: "load" });
+    const leftover = await pageU.evaluate(async (prefix) => {
+      const ls = Object.keys(localStorage).filter((key) => key.startsWith(prefix));
+      const cs = typeof caches !== "undefined" && caches.keys ? (await caches.keys()).filter((name) => name.startsWith(prefix)) : [];
+      const dbs = (await indexedDB.databases()).map((db) => db.name).filter((name) => name && name.startsWith(prefix));
+      return JSON.stringify({ ls, cs, dbs });
+    }, cleanupPrefix);
+    const parsedLeftover = JSON.parse(leftover);
+    check(
+      "deleted session scrubbed from site storage",
+      parsedLeftover.ls.length === 0 && parsedLeftover.cs.length === 0 && parsedLeftover.dbs.length === 0,
+      leftover
+    );
   } finally {
     await browser.close().catch(() => {});
     await new Promise((resolve) => server.instance.close(resolve));
